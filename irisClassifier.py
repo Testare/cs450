@@ -2,11 +2,14 @@ import re
 import random
 
 IRIS_CLASSES = ["Iris-setosa","Iris-versicolor","Iris-virginica"]
+SET_SIZE = 15
+SET_COUNT = 10
 
 class IrisDataInstance:
+    '''An instance of Iris data'''
     regex = re.compile(",")
     def __init__(self,line):
-#        print(line)
+        '''Initializes an instance of Iris data from a string'''
         data = IrisDataInstance.regex.split(line[:-1])
         self.sepal_length = data[0]
         self.sepal_width = data[1]
@@ -15,7 +18,10 @@ class IrisDataInstance:
         self.iris_class = data[4]
 
 class IrisDataSet:
+    '''A set of IrisDataInstances'''
     def __init__(self,filename=None):
+        '''Initializes a Data Set, either from a file or empty if filename
+        not specified'''
         self.data = []
         if filename == None:
             return
@@ -25,6 +31,7 @@ class IrisDataSet:
             random.shuffle(self.data)
 
     def split(self,count):
+        '''Splits off /count/ amount of instances from the end of this data set, puts them into a new data set, deletes them from this one, and returns the split off data'''
         newSet = IrisDataSet()
         newSet.data.extend(self.data[-count:])
         del self.data[-count:]
@@ -32,19 +39,26 @@ class IrisDataSet:
         #and that we take it off the end
         return newSet
     def copy(self):
+        '''Creates and returns a copy of this data set'''
         newSet = IrisDataSet()
         newSet.data.extend(self.data)
         return newSet
 
 class HardCodedClassifier:
+    ''' A learning classifier with a hard-coded algorithim'''
     def fit(self,dataset):
+        '''Trains on the new data'''
         pass
     def predict(self,dataset):
+        '''Predicts the classes of all the instances in the data set'''
         return [self._predict_instance(x) for x in dataset.data]
     def _predict_instance(self,instance):
+        '''Predicts the class of one instance'''
         return IRIS_CLASSES[0];
 
 def run_test(sets,testIndices):
+    '''Runs tests over the sets, training with most of the sets but testing on
+    the test sets specified by the test indices'''
     classifier = HardCodedClassifier()
     testSets = []
     for x in range(10):
