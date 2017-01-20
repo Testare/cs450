@@ -1,0 +1,11 @@
+
+from sklearn import datasets
+
+dataset = datasets.load_iris()
+
+classifier = KNeighborsClassifier(n_neighbors=3)
+
+process_data(dataset,classifier)
+
+classifier.fit(train_data, train_target)
+
