@@ -25,7 +25,8 @@ class DataInstance:
         self.data = self.regex.split(line[:-1])
         self.target = self.data[self.target_column]
         del self.data[self.target_column]
-
+        self.feature = self.data
+        self.feature_names = ["unnamed"] * len(self.feature)
     def compare(self,other):
         '''Returns the distance between two data instances. Can and probably should be overwritten'''
         return sum(map(lambda x,y:(float(x)- float(y))**2,self.data,other.data))
