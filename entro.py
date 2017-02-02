@@ -1,32 +1,7 @@
 from collections import Counter
 from math import log
-from china import Classifier,DataSet,DataInstance,InstanceType,run_test
-
-class CarDataInstance(DataInstance):
-    buying = {'vhigh':3,'high':6,'med':9,'low':12}
-    maint = buying
-    doors = {'2':3,'3':6,'4':9,'5more':12}
-    persons = {'2':4,'4':8,'more':12}
-    lug_boot = {'small':4,'med':8,'big':12}
-    safety = {'low':4,'med':8,'high':12}
-    attr = [buying,maint,doors,persons,lug_boot,safety]
-    feature_names = ["buying","maint","doors","persons","lug_boot","safety"] 
-
-    def __init__(self,line):
-        super().__init__(line)
-        self.feature_names = CarDataInstance.feature_names
-
-    def compare(self,other):
-        d = 0.0
-        for i in range(6):
-            d += (CarDataInstance.attr[i][self.data[i]] - CarDataInstance.attr[i][other.data[i]])**6
-
-
-@InstanceType(CarDataInstance)
-class CarDataSet(DataSet):
-    pass
-
-
+from china import Classifier,DataSet,DataInstance,InstanceType,run_test,run_crossfold_test
+from datasets import CarDataSet,IrisDataSet,LensesDataSet,VotingDataSet,discretize
 
 def calcEntropyBranch(targets):
     target_counter = Counter(targets)
@@ -59,9 +34,9 @@ def build_tree(data,possible_features):
     target_data = [d.target for d in data]
     min_entropy = calcEntropyBranch(target_data)
     if min_entropy == 0:
-        return -1,data[0].target
+        return -1,data[0].target,None
     elif len(possible_features) == 0:
-        return -1, Counter(target_data).most_common(1)[0][0] # Returns most common target
+        return -1, Counter(target_data).most_common(1)[0][0],None # Returns most common target
     chosen_feature = -1
     chosen_tree = None
     for x in possible_features:
@@ -77,7 +52,7 @@ def build_tree(data,possible_features):
     possible_features.remove(chosen_feature)
     for x in chosen_tree.keys():
         ret_tree[x] = build_tree(chosen_tree[x],possible_features)
-    return chosen_feature,ret_tree
+    return chosen_feature,ret_tree, Counter(target_data).most_common(1)[0][0]
     
 class ID3Classifier(Classifier):
     def __init__(self):
@@ -85,23 +60,24 @@ class ID3Classifier(Classifier):
         self.tree = {}
         self.data = []
         self.root_feature = -1
+        self.default = ""
 
     def fit(self,dataset):
         self.data.extend(dataset.data)
-        self.root_feature, self.tree = build_tree(
+        self.root_feature, self.tree,self.default = build_tree(
             self.data,list(range(len(self.data[0].feature))))
-        
-        #//Build tree
         pass
 
     def predict_instance(self,instance):
         feat = self.root_feature
         node = self.tree
+        default = self.default
         while feat != -1:
-            print(feat)
-            print(node.keys())
-            feat,node = node[instance.feature[feat]]
+            feat,node,default = node.get(instance.feature[feat],(-1,default,None))
         return node
+
+    def print_tree(self):
+        print_tree(0,self.root_feature,self.tree,self.data[0].feature_names)
 
 def print_tree(level,feature,node,feature_names):
     if feature == -1:
@@ -112,21 +88,26 @@ def print_tree(level,feature,node,feature_names):
         for k,v in sorted(node.items()):
             print("  "*level + "-{:<6} ".format("{}:".format(k)),end="")
             print_tree(level,v[0],v[1],feature_names)
-    
 
 if "__main__" == __name__:
-#    print(calcEntropyBranch(["A","A","A","B","A","B","C"]))
-#    print(calcEntropyBranch(["A","A"]))
-#    print(calcEntropyBranch(["A","C"]))
-    data = CarDataSet("datasets/car.data")
-#    entropy, tree = calcEntropyForFeature(data.data,1)
-#    print(entropy)
-#    entropy, tree = calcEntropyForFeature(next(iter(tree.values())),1)
-#    print(entropy)
-    root_feature, tree = build_tree(data.data,list(range(len(data.data[0].feature))))
-#    print(tree)
-    print_tree(0,root_feature,tree,data.data[0].feature_names)
-    #1728 data points
-    data2 = data.split(480)
-    acc = run_test(ID3Classifier(),[data,data2],[1])
-    print("acc: {}".format(acc))
+    # data = CarDataSet("datasets/car.data")
+    # classifier, acc_matrix = run_crossfold_test(data,ID3Classifier)
+    # classifier.print_tree()
+    iris_data = IrisDataSet("datasets/iris.data")
+    d_iris_data = discretize(iris_data,bins=5)
+    lenses_data = LensesDataSet("datasets/lenses.data")
+    voting_data = VotingDataSet("datasets/house-votes-84.data")
+    print("\nRunning n-fold validation on Iris data")
+    d_iris_classifer,d_iris_matrix = run_crossfold_test(d_iris_data,ID3Classifier)
+    print("\nRunning n-fold validation on Lenses data")
+    lenses_classifier,lenses_matrix = run_crossfold_test(lenses_data,ID3Classifier)
+    print("\nRunning n-fold validation on Voting data")
+    voting_classifier,voting_matrix = run_crossfold_test(voting_data,ID3Classifier)
+    print("\nIris decision tree")
+    d_iris_classifer.print_tree()
+    # print(iris_data.data[0].data)
+    # print(d_iris_data.data[0].data)
+    print("\nLenses decision tree(See documentation for number interpretation)")
+    lenses_classifier.print_tree()
+    print("\nVoting decision tree")
+    voting_classifier.print_tree()
