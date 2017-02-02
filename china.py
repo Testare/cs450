@@ -1,11 +1,18 @@
 import re
 import random
 import math
+from functools import reduce
 
 def TargetColumn(num):
     '''A decorator that specifies which column of a data instance line is the target. Default is -1'''
     def change_num(cls):
         cls.target_column = num
+        return cls
+    return change_num
+
+def IgnoreColumns(*cols):
+    def change_num(cls):
+        cls.ignore_columns = cols
         return cls
     return change_num
 
@@ -20,27 +27,42 @@ class DataInstance:
     '''An instance of data'''
     regex = re.compile(",")
     target_column = -1
-    def __init__(self,line):
+    ignore_columns = []
+    feature_names = None
+    def __init__(self,line=None,data=None,target=None):
         '''Initializes an instance of Iris data from a string'''
-        self.data = self.regex.split(line[:-1])
-        self.target = self.data[self.target_column]
-        del self.data[self.target_column]
+        if line != None:
+            self.data = self.regex.split(line[:-1])
+            self.target = self.data[self.target_column]
+            del self.data[self.target_column]
+            for x in reversed(sorted(self.ignore_columns)):
+                del self.data[x]
+        elif data != None and target != None:
+            self.data = data
+            self.target = target
         self.feature = self.data
-        self.feature_names = ["unnamed"] * len(self.feature)
+        self.feature_names = self.__class__.feature_names
+        if self.feature_names == None:
+            self.feature_names = ["unnamed"] * (len(self.feature)+1)
+
     def compare(self,other):
         '''Returns the distance between two data instances. Can and probably should be overwritten'''
         return sum(map(lambda x,y:(float(x)- float(y))**2,self.data,other.data))
+    def discretize(self):
+        pass
 
+    def copy(self):
+        return self.__class__(data=self.data,target=self.target)
 
 class DataSet:
     '''A set of DataInstances'''
 
     instance_class = DataInstance
 
-    def __init__(self,filename=None):
+    def __init__(self,filename=None,data_set=[]):
         '''Initializes a Data Set, either from a file or empty if filename
         not specified'''
-        self.data = []
+        self.data = data_set.copy()
         if filename == None:
             return
         with open(filename) as data:
@@ -61,6 +83,11 @@ class DataSet:
         newSet.data.extend(self.data)
         return newSet
 
+    def discretize(self):
+        for d in self.data:
+            d.discretize()
+
+
 class Classifier:
     ''' A learning classifier with a hard-coded algorithim'''
     def fit(self,dataset):
@@ -75,28 +102,71 @@ class Classifier:
 
 class CrossMatrix:
     '''tbcompleted'''
+    def __init__(self):
+        self.att_list = []
+        self.matrix = {}
+        self.size = 0
+        self._acc = -1
+
+    def update(self,prediction,target):
+        if prediction not in self.att_list:
+            self._new_att(prediction)
+        if target not in self.att_list:
+            self._new_att(target)
+        self.matrix[target][prediction] += 1
+        self.size += 1
+        self._acc = -1
+
+    def _new_att(self,att):
+        self.att_list.append(att)
+        for row in self.matrix.values():
+            row[att] = 0
+        self.matrix[att] = {row:0 for row in self.att_list}
+
+    @property
+    def accuracy(self):
+        if (self.size == 0):
+            return 0.0
+        if (self._acc == -1):
+            self._acc = float(sum([self.matrix[x][x] for x in self.att_list])) \
+            / float(self.size)
+        return self._acc
+
+    def __str__(self):
+        self.att_list = sorted(self.att_list)
+        retstr = "Rows:Targets\nCols:Prediction\n[{}]\n".format(reduce(lambda x,y: x + ", " + y,self.att_list))
+        for x in self.att_list:
+            for y in self.att_list:
+                retstr += "|{:^5}".format(self.matrix[x][y])
+            retstr += "| T:{}\n".format(x)
+        return retstr
+        return "{}\n{}\n".format(str(self.att_list),str(self.matrix))
 
 def run_test(classifier,sets,testIndices):
     '''Runs tests over the sets, training with most of the sets but testing on the test sets specified by the test indices'''
-    testSets = []
+    test_set = []
+    training_set = []
     for x in range(len(sets)):
         if x in testIndices:
-            testSets.append(sets[x])
-            continue
-        classifier.fit(sets[x])
+            test_set.extend(sets[x].data)
+        else:
+            training_set.extend(sets[x].data)
+
+    classifier.fit(DataSet(data_set=training_set))
     correct = 0
     attempts = 0
-    for testdata in testSets:
-        predictions = classifier.predict(testdata)
-        for i in range(len(testdata.data)):
-            if predictions[i] == testdata.data[i].target:
-                correct += 1
-            attempts += 1
-    return correct/attempts
+    predictions = classifier.predict(DataSet(data_set=test_set))
+    matrix = CrossMatrix()
+    for i in range(len(test_set)):
+        if predictions[i] == test_set[i].target:
+            correct += 1
+        matrix.update(predictions[i],test_set[i].target)
+        attempts += 1
+    return matrix
 
 
 
-def run_crossfold_test(classifier,trainingdata):
+def run_crossfold_test(trainingdata,classifier_class,*classifier_args):
     dataSubsets = []
     increment = len(trainingdata.data)/float(10)
     baseAmount = 0.0;
@@ -107,22 +177,27 @@ def run_crossfold_test(classifier,trainingdata):
     dataSubsets.append(trainingdata)
     avgacc = 0
     iters = 0
-    bestacc = 0.0
+    bestclassifier = None
+    bestacc = CrossMatrix()
     beststrin = ""    #triple loop finds optimal 30% set of numbers for accuracy
                        #n-fold validation complete
     for i in range(8):
         for j in range(i + 1,9):
             for k in range(j + 1,10):
+                classifier = classifier_class(*classifier_args)
                 acc = run_test(classifier,dataSubsets,[i,j,k])
-                strin = "%d %d %d - %2.1f%%" % (i,j,k,acc*100)
-                if acc > bestacc:
+                strin = "%d %d %d - %2.1f%%" % (i,j,k,acc.accuracy*100)
+                if acc.accuracy > bestacc.accuracy:
                     bestacc = acc
                     beststrin = strin
-                avgacc += acc
+                    bestclassifier = classifier
+                avgacc += acc.accuracy
                 iters += 1
                 print(strin)
     print("\n\nBest accuracy: \n%s" % beststrin)
     print("\nAverage accuracy: \n%2.1f%%" % (float(100*avgacc)/iters))
+    print("\nBest matrix: \n{}".format(bestacc))
+    return bestclassifier,bestacc
 
 if __name__ == "__main__":
     trainingdata = DataSet("iris.data")
