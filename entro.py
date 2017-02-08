@@ -1,7 +1,7 @@
 from collections import Counter
 from math import log
 from china import Classifier,DataSet,DataInstance,InstanceType,run_test,run_crossfold_test
-from datasets import CarDataSet,IrisDataSet,LensesDataSet,VotingDataSet,discretize
+from data_sets import CarDataSet,IrisDataSet,LensesDataSet,VotingDataSet,discretize
 
 def calcEntropyBranch(targets):
     target_counter = Counter(targets)

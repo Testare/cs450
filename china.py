@@ -3,6 +3,8 @@ import random
 import math
 from functools import reduce
 
+#Decorators
+
 def TargetColumn(num):
     '''A decorator that specifies which column of a data instance line is the target. Default is -1'''
     def change_num(cls):
@@ -22,6 +24,8 @@ def InstanceType(instance_class):
         cls.instance_class = instance_class
         return cls
     return change_class
+
+#Classes
 
 class DataInstance:
     '''An instance of data'''
@@ -70,6 +74,20 @@ class DataSet:
                 self.data.append(self.instance_class(line))
             random.shuffle(self.data)
 
+    def __iter__(self):
+        class DataIterator:
+            def __init__(self,iterate):
+                self.i = -1
+                self.it = iterate
+                self.end = len(iterate.data)
+
+            def __next__(self) -> DataInstance:
+                self.i += 1
+                if self.i == self.end:
+                    raise StopIteration
+                return self.it.data[self.i]
+        return DataIterator(self)
+
     def split(self,count):
         '''Splits off /count/ amount of instances from the end of this data set, puts them into a new data set, deletes them from this one, and returns the split off data'''
         newSet = self.__class__()
@@ -99,6 +117,7 @@ class Classifier:
     def predict_instance(self,instance):
         '''Predicts the class of one instance'''
         return 'Iris-setosa';
+
 
 class CrossMatrix:
     '''tbcompleted'''
@@ -142,6 +161,20 @@ class CrossMatrix:
         return retstr
         return "{}\n{}\n".format(str(self.att_list),str(self.matrix))
 
+class NormalizedDataInstance(DataInstance):
+    def __init__(self,*args,**options):
+        super().__init__(*args,**options)
+        # self.feature_names = class_.feature_names
+    pass
+
+@InstanceType(NormalizedDataInstance)
+class NormalizedDataSet(DataSet):
+    def __init__(self,data_instance_class,*args,**options):
+        super().__init__(*args,**options)
+        self.data_instance_class = data_instance_class
+        self.instance_class = data_instance_class
+
+
 def run_test(classifier,sets,testIndices):
     '''Runs tests over the sets, training with most of the sets but testing on the test sets specified by the test indices'''
     test_set = []
@@ -163,7 +196,6 @@ def run_test(classifier,sets,testIndices):
         matrix.update(predictions[i],test_set[i].target)
         attempts += 1
     return matrix
-
 
 
 def run_crossfold_test(trainingdata,classifier_class,*classifier_args):
@@ -199,7 +231,32 @@ def run_crossfold_test(trainingdata,classifier_class,*classifier_args):
     print("\nBest matrix: \n{}".format(bestacc))
     return bestclassifier,bestacc
 
+# Functions
+
+
+def normalized(dataset:DataSet):
+    x_min = dataset.data[0].data
+    x_max = x_min
+    for y in dataset.data[1:]:
+        x_min = map(min,x_min,y.data)
+        x_max = map(max,x_max,y.data)
+    x_min = list(x_min)
+    x_max = [xax - xin for xin,xax in zip(x_min,x_max)]
+    # targets = [datum.target for datum in dataset]
+    data_values = [NormalizedDataInstance(
+                    data=[((val - xin)/x_norm) for val, xin, x_norm
+                     in zip(x.data, x_min, x_max)],
+                    target=x.target)
+                    for x in dataset]
+
+    d_set = NormalizedDataSet(data_instance_class=dataset.instance_class,
+                              data_set=data_values)
+    return d_set
+
+
+
 if __name__ == "__main__":
-    trainingdata = DataSet("iris.data")
-    classifier = Classifier()
-    run_crossfold_test(classifier,trainingdata)
+   #  trainingdata = DataSet("iris.data")
+   #  classifier = Classifier()
+    # run_crossfold_test(classifier,trainingdata)
+    print("k")

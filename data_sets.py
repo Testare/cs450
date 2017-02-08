@@ -2,6 +2,7 @@ from functools import reduce
 from china import DataSet,DataInstance,InstanceType,TargetColumn,IgnoreColumns
 from math import inf
 import re
+
 class CarDataInstance(DataInstance):
     buying = {'vhigh':3,'high':6,'med':9,'low':12}
     maint = buying
@@ -63,9 +64,19 @@ class LensesDataInstance(DataInstance):
     feature_names = ["Age","Perscription","Astigmatic","Tear production rate"]
     pass
 
+class PimaIndianInstance(DataInstance):
+    feature_names = ["Pregnancies","Plasma Glucose Concentration",
+                     "Blood press","Tricep thickness","serum insulin","BMI",
+                     "Pedigree Function","Age"]
+
+    def __init__(self, *args, **options):
+        super().__init__(*args, **options)
+        self.data = list(map(float, self.data))
+
 @InstanceType(CarDataInstance)
 class CarDataSet(DataSet):
     pass
+
 
 class DiscretizedDataInstance(DataInstance):
     # TODO work on this more
@@ -126,4 +137,8 @@ class LensesDataSet(DataSet):
 
 @InstanceType(VotingDataInstance)
 class VotingDataSet(DataSet):
+    pass
+
+@InstanceType(PimaIndianInstance)
+class PimaIndianSet(DataSet):
     pass
