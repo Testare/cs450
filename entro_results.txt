@@ -122,7 +122,7 @@ Running n-fold validation on Iris data
 7 8 9 - 88.9%
 
 
-Best accuracy: 
+Best accuracy:
 0 2 8 - 95.6%
 
 Average accuracy: 
@@ -409,7 +409,6 @@ Cols:Prediction
 [democrat, republican]
 | 74  |  1  | T:democrat
 |  3  | 53  | T:republican
-
 
 Iris decision tree
 (petal_width)

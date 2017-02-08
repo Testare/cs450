@@ -3,6 +3,7 @@ import random
 import math
 from functools import reduce
 
+
 #Decorators
 
 def TargetColumn(num):
@@ -160,7 +161,6 @@ class CrossMatrix:
             retstr += "| T:{}\n".format(x)
         return retstr
         return "{}\n{}\n".format(str(self.att_list),str(self.matrix))
-
 class NormalizedDataInstance(DataInstance):
     def __init__(self,*args,**options):
         super().__init__(*args,**options)
@@ -231,6 +231,7 @@ def run_crossfold_test(trainingdata,classifier_class,*classifier_args):
     print("\nBest matrix: \n{}".format(bestacc))
     return bestclassifier,bestacc
 
+
 # Functions
 
 
@@ -252,8 +253,6 @@ def normalized(dataset:DataSet):
     d_set = NormalizedDataSet(data_instance_class=dataset.instance_class,
                               data_set=data_values)
     return d_set
-
-
 
 if __name__ == "__main__":
    #  trainingdata = DataSet("iris.data")
