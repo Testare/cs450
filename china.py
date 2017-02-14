@@ -91,10 +91,13 @@ class DataSet:
 
     def split(self,count):
         '''Splits off /count/ amount of instances from the end of this data set, puts them into a new data set, deletes them from this one, and returns the split off data'''
-        newSet = self.__class__()
-        newSet.data.extend(self.data[-count:])
+        if self.__class__ is NormalizedDataSet:
+            new_set = self.__class__(self.data_instance_class)
+        else:
+            new_set = self.__class__()
+        new_set.data.extend(self.data[-count:])
         del self.data[-count:]
-        return newSet
+        return new_set
 
     def copy(self):
         '''Creates and returns a copy of this data set'''
@@ -161,11 +164,14 @@ class CrossMatrix:
             retstr += "| T:{}\n".format(x)
         return retstr
         return "{}\n{}\n".format(str(self.att_list),str(self.matrix))
+
+
 class NormalizedDataInstance(DataInstance):
     def __init__(self,*args,**options):
         super().__init__(*args,**options)
         # self.feature_names = class_.feature_names
     pass
+
 
 @InstanceType(NormalizedDataInstance)
 class NormalizedDataSet(DataSet):
@@ -173,14 +179,16 @@ class NormalizedDataSet(DataSet):
         super().__init__(*args,**options)
         self.data_instance_class = data_instance_class
         self.instance_class = data_instance_class
+        self.feature_names = data_instance_class.feature_names
 
 
-def run_test(classifier,sets,testIndices):
-    '''Runs tests over the sets, training with most of the sets but testing on the test sets specified by the test indices'''
+def run_test(classifier, sets, test_indices):
+    """Runs tests over the sets, training with most of the sets but testing
+    on the test sets specified by the test indices"""
     test_set = []
     training_set = []
     for x in range(len(sets)):
-        if x in testIndices:
+        if x in test_indices:
             test_set.extend(sets[x].data)
         else:
             training_set.extend(sets[x].data)
@@ -198,15 +206,15 @@ def run_test(classifier,sets,testIndices):
     return matrix
 
 
-def run_crossfold_test(trainingdata,classifier_class,*classifier_args):
+def run_crossfold_test(training_data, classifier_class, *classifier_args):
     dataSubsets = []
-    increment = len(trainingdata.data)/float(10)
+    increment = len(training_data.data) / float(10)
     baseAmount = 0.0;
     for x in range(9): # Dataset size is kinda hard-coded... meh
         baseAmount += increment
-        dataSubsets.append(trainingdata.split(math.floor(baseAmount)))
+        dataSubsets.append(training_data.split(math.floor(baseAmount)))
         baseAmount -= math.floor(baseAmount)
-    dataSubsets.append(trainingdata)
+    dataSubsets.append(training_data)
     avgacc = 0
     iters = 0
     bestclassifier = None

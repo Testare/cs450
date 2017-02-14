@@ -3,6 +3,7 @@ from china import DataSet,DataInstance,InstanceType,TargetColumn,IgnoreColumns
 from math import inf
 import re
 
+
 class CarDataInstance(DataInstance):
     buying = {'vhigh':3,'high':6,'med':9,'low':12}
     maint = buying
@@ -21,6 +22,7 @@ class CarDataInstance(DataInstance):
         d = 0.0
         for i in range(6):
             d += (CarDataInstance.attr[i][self.data[i]] - CarDataInstance.attr[i][other.data[i]])**6
+
 
 class IrisDataInstance(DataInstance):
     '''An instance of Iris data'''
@@ -45,6 +47,7 @@ class IrisDataInstance(DataInstance):
                        self.data,
                        other.data,IrisDataInstance.max,IrisDataInstance.min))
 
+
 @TargetColumn(0)
 class VotingDataInstance(DataInstance):
     feature_names = [
@@ -58,11 +61,13 @@ class VotingDataInstance(DataInstance):
     ]
     pass
 
+
 @IgnoreColumns(0)
 class LensesDataInstance(DataInstance):
     regex = re.compile("\s+")
     feature_names = ["Age","Perscription","Astigmatic","Tear production rate"]
     pass
+
 
 class PimaIndianInstance(DataInstance):
     feature_names = ["Pregnancies","Plasma Glucose Concentration",
@@ -108,6 +113,7 @@ def discretize(data_set,bins=10):
             target_str = "{:.2f}->{:.2f}".format(lowbound,highbound)
             lowbounds[lowbound] = target_str
         data_bounds.append(lowbounds)
+
     def apply_labels(data_instance):
         ret_data = []
         for bounds,data in zip(data_bounds,data_instance.data):
@@ -127,17 +133,21 @@ def discretize(data_set,bins=10):
         # print(apply_labels(self.data[0]))
     return DiscretizedDataSet(data_set=list(map(apply_labels,data_set.data)))
 
+
 @InstanceType(IrisDataInstance)
 class IrisDataSet(DataSet):
     pass 
+
 
 @InstanceType(LensesDataInstance)
 class LensesDataSet(DataSet):
     pass
 
+
 @InstanceType(VotingDataInstance)
 class VotingDataSet(DataSet):
     pass
+
 
 @InstanceType(PimaIndianInstance)
 class PimaIndianSet(DataSet):
