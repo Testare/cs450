@@ -64,7 +64,7 @@ class DataSet:
 
     instance_class = DataInstance
 
-    def __init__(self,filename=None,data_set=[]):
+    def __init__(self,filename=None,data_set=[],**options):
         '''Initializes a Data Set, either from a file or empty if filename
         not specified'''
         self.data = data_set.copy()
@@ -89,6 +89,9 @@ class DataSet:
                 return self.it.data[self.i]
         return DataIterator(self)
 
+    def __len__(self):
+        return len(self.data)
+
     def split(self,count):
         '''Splits off /count/ amount of instances from the end of this data set, puts them into a new data set, deletes them from this one, and returns the split off data'''
         if self.__class__ is NormalizedDataSet:
@@ -99,9 +102,9 @@ class DataSet:
         del self.data[-count:]
         return new_set
 
-    def copy(self):
+    def copy(self,**options):
         '''Creates and returns a copy of this data set'''
-        newSet = self.__class__() 
+        newSet = self.__class__(**options)
         newSet.data.extend(self.data)
         return newSet
 
@@ -181,6 +184,14 @@ class NormalizedDataSet(DataSet):
         self.instance_class = data_instance_class
         self.feature_names = data_instance_class.feature_names
 
+    def copy(self,**options):
+        return super().copy(data_instance_class=self.data_instance_class)
+
+def run_pretrained_test(classifier,test_data):
+    return run_test(classifier,[test_data],[0])
+
+def run_simple_test(classifier,training_data,test_data):
+    return run_test(classifier,[training_data,test_data],[1])
 
 def run_test(classifier, sets, test_indices):
     """Runs tests over the sets, training with most of the sets but testing

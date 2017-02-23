@@ -1,82 +1,57 @@
 import random
 from itertools import chain
-from china import Classifier,DataInstance,normalized,run_crossfold_test
-from data_sets import IrisDataSet,PimaIndianSet
+from collections import deque
+import operator
 import math
 import logging
+from functools import reduce
+
+from china import Classifier,DataInstance,normalized,\
+    run_crossfold_test,run_simple_test,run_pretrained_test
+from data_sets import IrisDataSet,PimaIndianSet, DataSet
+
+from neural2 import weight_net,full_update_net,get_activations
+
 
 verification_logger = logging.getLogger(__name__)
 
-class Neuron:
-    G_CONST = -1 #In case we want to try changing this constant later
-
-    def __init__(self, inputs_):
-        self.weights = [random.randrange(-100,100,)/float(100)
-                        for _ in range(inputs_ + 1)]
-
-    def __getitem__(self, inputs_):
-        return self._g(sum(map(lambda x, y: x*y,
-                               self.weights, chain([-1],inputs_))))
-
-    @staticmethod
-    def _g(sum_):
-        # to be -> g(h) = 1/(1 + e^(-h))
-        # if sum_ > 0:
-        #     return 1
-        # return 0
-        return 1/(1 + math.exp(Neuron.G_CONST*sum_))
-
-    @staticmethod
-    def _g_prime(sum_=None,a=None):
-        if a is None:
-            a = Neuron._g(sum_)
-        return a*(1-a)
-
-class NeuronLayer:
-    def __init__(self, inputs, nodes):
-        self.nodes = [Neuron(inputs) for _ in range(nodes)]
-        verification_logger.info("INIT-NEURON-LAYER")
-        for x in self.nodes:
-            verification_logger.info(x.weights)
-
-    def __getitem__(self, inputs_):
-        return [self.nodes[i][inputs_] for i in range(len(self.nodes))]
-
-
 class NNClassifier(Classifier):
-    def __init__(self, input_count, *layers_, target_set=None):
+    def __init__(self, *layers_, learning_rate=1,target_set=None):
         """
         Creates a classifiers with nodes according to inputs
 
         :param input_count: The amount of inputs
         :param layers_: The number of nodes in the hidden and output layers
         """
+
         self.neurons = None
-        layers = zip(chain([input_count],layers_),layers_)
-        # print(list(layers))
-        self.layers = [NeuronLayer(x,y) for (x,y) in layers]
+        # layers = zip(chain([input_count],layers_),layers_)
+        self.weight_net = weight_net(*layers_)
         self.target_set = target_set
+        self.learning_rate=learning_rate
 
-    def get_activations(self,inputs):
-        def activation_for_layer(layers,inputs_):
-            if not layers:
-                return []
-            outputs = layers[0][inputs_]
-            verification_logger.info(str(layers[0]) + "->" + str(outputs))
-            return [outputs] + activation_for_layer(layers[1:],outputs)
-
-        verification_logger.info("GET_ACTIVATIONS_NNCLASSIFIER")
-        return activation_for_layer(self.layers,inputs)
-
-    def fit(self, dataset):
-        self.target_set = sorted(
-            {data_instance.target for data_instance in dataset})
-        # Dun't do much rn
-        # I might need a better way to specify classes later, but this is what
-        # I got for now...
+    def fit(self, dataset, valid_set=None,epoch=0):
+        if dataset.data:
+            if not valid_set:
+                training_set = dataset.copy()
+                valid_set = training_set.split((len(dataset)*3 + 1)//10)
+            else:
+                training_set = dataset
+            lst_ = deque()
+            for epoch in range(1000):
+                self.target_set = sorted(
+                    {data_instance.target for data_instance in dataset})
+                self.weight_net = reduce(lambda x,y:full_update_net(net=x,inputs_=y.data,target=self.target_set.index(y.target),learning_rate=self.learning_rate),training_set.data,self.weight_net)
+                results = run_pretrained_test(self,valid_set)
+                print("[{}] -> {:.2f}%".format(epoch,100*results.accuracy))
+                print(results)
+                lst_.append(results.accuracy)
+                if(results.accuracy > 0.99):
+                    return list(lst_)
+            return list(lst_)
 
     def predict_instance(self,instance):
-        final_activations = self.get_activations(instance.data)[-1]
+        final_activations = get_activations(net=self.weight_net,input_=instance.data)[-1]
         list_ = list(enumerate(final_activations))
         verification_logger.info(list(map(lambda x:("%d -> %s" % (x[0],self.target_set[x[0]]),x[1]),list_)))
         return self.target_set[max(list_,key=lambda x: x[1])[0]]
@@ -90,19 +65,33 @@ if "__main__" == __name__:
     pima_data = normalized(
         PimaIndianSet("datasets/pima-indians-diabetes.data"))
 
-    pima_classifier = NNClassifier(8,2,2)
-    pima_classifier.fit(pima_data)
-    example_indian = DataInstance(data=[0,1,2,3,4,5,6,7],target=0)
-    verification_logger.info("PIMA PREDICTION: %s" % str(pima_classifier.predict_instance(example_indian)))
+    # print(len(pima_data))
+    # test_data = pima_data.split(154)
+    # pima_classifier = NNClassifier(8, 22, 2)
 
-    iris_classifier = NNClassifier(4,6,3)
-    iris_classifier.fit(iris_data)
-    example_iris = DataInstance(data=[1.0,1.0,1.0,1.0],target="Iris-virginica")
-    verification_logger.info("IRIS PREDICTION: %s" % str(iris_classifier.predict_instance(example_iris)))
+    # test_classifier = NNClassifier(3,2,2)
+    # test_data_set = DataSet(data_set=[
+    #     DataInstance(data=[1,2,3],target="m"),
+    #     DataInstance(data=[1,3,5],target="l"),
+    #     DataInstance(data=[3,3,1],target="m")
+    # ])
+    # #test_classifier.fit(test_data_set)
+    # activ_ = test_classifier.get_activations([1,1,1])
+    # for x in test_classifier.layers:
+    #     print("* %s" % x)
+    #     for node in x.nodes:
+    #         print(node.weights)
+    #
+    # print(activ_)
+    # print(test_classifier.get_error(activ_,"m"))
+    # pima_classifier.fit(pima_data)
+    # print(run_simple_test(pima_classifier,pima_data,test_data))
 
-    #Run crossfold test on iris_data
-    run_crossfold_test(iris_data,NNClassifier,4,6,3)
-    run_crossfold_test(pima_data,NNClassifier,8,8,2)
-    # classifier.fit(pima_data)
-    # for k in pima_data:
-    #     print(classifier.outputs_for_instance(k))
+    # iris_classifier = NNClassifier(4,6,6,3,learning_rate=1)
+    # print(iris_classifier.fit(iris_data))
+    # print(run_pretrained_test(iris_classifier,iris_data))
+
+
+    pima_classifier = NNClassifier(8,8,8,8,2,learning_rate=1)
+    print(pima_classifier.fit(pima_data))
+    print(run_pretrained_test(pima_classifier,iris_data))
